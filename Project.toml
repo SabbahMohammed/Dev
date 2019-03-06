@@ -1,0 +1,10 @@
+name = "MyFiles"
+uuid = "49ae7293-9c65-5939-bac9-07d2f20dbed1"
+authors = ["Mohammed Sabbah <ms246@hw.ac.uk>"]
+version = "0.1.0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
