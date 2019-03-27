@@ -1,0 +1,24 @@
+name = "MyFiles"
+uuid = "49ae7293-9c65-5939-bac9-07d2f20dbed1"
+authors = ["Mohammed Sabbah <ms246@hw.ac.uk>"]
+version = "0.1.0"
+
+[deps]
+DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+Dierckx = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+NumericalIntegration = "e7bfaba1-d571-5449-8927-abc22e82249b"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
