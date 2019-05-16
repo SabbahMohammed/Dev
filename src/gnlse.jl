@@ -1,4 +1,4 @@
-function gnlse(pulse::Pulse, fiber::Fiber, betas::Array{Float64,1}; dispersion::Bool = true,  fr::Float64=0.0, shock::Bool=false, plasma::Bool=false, nsaves::Int64=1000)
+function gnlse(pulse::Pulse, fiber::Fiber, betas::Array{Any,1}; dispersion::Bool = true,  fr::Float64=0.0, shock::Bool=false, plasma::Bool=false, nsaves::Int64=1000)
     ω0 = 2pi*c/pulse.λ0
     γ = getGamma(fiber.gas, fiber.p, fiber.Tk, ω0, fiber.diameter)
 
@@ -46,7 +46,9 @@ function gnlse(pulse::Pulse, fiber::Fiber, betas::Array{Float64,1}; dispersion::
         L = 0
     end
     #Raman
-    RW = raman(fr, γ, convt)
+    τ1 = 62.5e-15
+    τ2 = 77e-15
+    RW = sdo(τ, τ1, τ2)
 
     #windows
     gw(z) = (convt) .* exp.(-0.5 .*((W.+ 2e15 .-  maximum(W)./2)./(maximum(W).*0.5)).^30).* exp.(-z .* L)

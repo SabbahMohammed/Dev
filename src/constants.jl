@@ -40,4 +40,7 @@ const h = 6.62607004e-34
 const p_0 = 1 #standered pressure
 const Tk_0 = 272.15 #standered temperture
 const u = 2.40482555769577 #first order bessel solution http://wwwal.kuicr.kyoto-u.ac.jp/www/accelerator/a4/besselroot.htmlx
-
+const eh = 4.35974434e-18      # Hartree energy
+const a_b = 0.52917721092e-10  # Bohr radius
+const a_E = 5.14220652e11      # atomic unit of electric field
+const a_t = 2.418884326502e-17 # atomic unit of time

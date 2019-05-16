@@ -9,7 +9,7 @@ to plot these betas, use plot(eqn, 200:10:1300)
 
 # x is ω
 function beta0(x, gas::Symbol, p, Tk, a)
-    if gas == :air
+    if gas == :Air
         # constants for Air
         b_1 = 14926.44*10^-8.0
         b_2 = 41807.57*10^-8.0

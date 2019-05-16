@@ -169,6 +169,14 @@ function getElectricFieldE(pulse, fiber)
     return Et
 end
 
+function get_env(ef)
+    ew = fft(ef)
+    ew[Int(size(ew)[1]/2+1):end] .= 0.0
+    ep = 2.0.*ifft(ew)
+    ep
+end
+
+
 function mfft(x)
     y = fft(x)
     if isreal(x[1])
@@ -187,34 +195,106 @@ function mifft(x)
     end
 end
 
-
-
-#=
-function cumtrapz(x, y; dim=1)
-    perm = [dim:max(length(size(y)),dim); 1:dim-1];
-    y = permutedims(y, perm);
-    if ndims(y) == 1
-        n = 1;
-        m = length(y);
-    else
-        m, n = size(y);
-    end
-
-    if n == 1
-        dt = diff(x)/2.0;
-        z = [0; cumsum(dt.*(y[1:(m-1)] + y[2:m]))];
-    else
-        dt = repeat(diff(x)/2.0,1,n);
-        z = [zeros(1,n); cumsum(dt.*(y[1:(m-1), :] + y[2:m, :]),dims=1)];
-        z = permutedims(z, invperm(perm));
-    end
-
-    return z
+function smoothstep(left, right, loss, x)
+    x = clamp((x-left)/(right-left), 0, 1)
+    return x*x*(3-2*x)*loss
 end
 
-function cumtrapz0(x, y)
-    α = cumtrapz(x, y)
-    res = vcat([0], α)
-    res
+function flipsmoothstep(left, right, loss,x)
+    if x<left
+        return 1.0
+    elseif x>right
+        return loss
+    else
+        x = clamp1(1-(x-left)/(right-left), 0, 1.0, loss)
+        y = x*x*(3.0-2.0*x)
+        return (y*(1-loss)+loss)
+    end
 end
-=#
+
+function clamp1(x, lo, hi, loss)
+    if x<lo
+        return x = 1.0
+    elseif x>hi
+        return x = loss
+    end
+    return x
+end
+
+
+function ml_0!(X, Y, Z, A, z, q)
+  k = size(X)[1]
+  # @inbounds @simd for j in 1:900
+    @inbounds @simd for i in eachindex(X)
+      # Ew0[i] = Ew0[i]+1
+      X[i] = Y[i]*A[i]*exp(Z[i]*z)*q
+    # end
+  end
+  nothing
+end
+
+
+function ml!(X, Y, z)
+  # @inbounds @simd for j in 1:900
+    @inbounds @simd for i in eachindex(X)
+      # x = X[i]
+      X[i] = X[i]*exp(-Y[i]*z)
+    # end
+  end
+  nothing
+end
+
+function ml_1!(X, Y, z)
+  # @inbounds @simd for j in 1:900
+    @inbounds @simd for i in eachindex(X)
+      # Ew0[i] = Ew0[i]+1
+      X[i] = Y[i]*z
+    # end
+  end
+  nothing
+end
+
+function ml_2!(X, Y, Z, z)
+  # @inbounds @simd for j in 1:900
+    @inbounds @simd for i in eachindex(X)
+      # Ew0[i] = Ew0[i]+1
+      X[i] = Y[i]*Z[i]*z
+    # end
+  end
+  nothing
+end
+
+
+
+
+function ift!(Et, ift, convw)
+  # @inbounds @simd for j in 1:900
+    @inbounds @simd for i in eachindex(Et)
+      # Ew0[i] = Ew0[i]+1
+      Et[i] = ift[i]*convw
+    # end
+  end
+  nothing
+end
+
+δ(k::Integer,j::Integer) = k == j ? 1 : 0
+
+
+function cumtrapz(x::AbstractVector, y::AbstractVector, retarr::AbstractVector)
+    @assert length(x) == length(y) "x and y vectors must be of the same length!"
+    for i in 2 : length(y)
+        retarr[i] = retarr[i-1] + (x[i] - x[i-1]) * (y[i] + y[i-1])
+    end
+    for i in eachindex(retarr)
+        retarr[i] = retarr[i]*1//2
+    end
+end
+
+function trapz(x::AbstractVector, y::AbstractVector)
+    @assert length(x) == length(y) "x and y vectors must be of the same length!"
+    retval = 0.0
+    for i in 1 : length(y)-1
+        retval += (x[i+1] - x[i]) * (y[i] + y[i+1])
+    end
+    return 1//2 * retval
+end

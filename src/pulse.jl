@@ -38,6 +38,14 @@ function sechPulse(;τ= τ, energy=energy, FWHM=FWHM, λ0=λ0)
     res
 end
 
+function chirpSechPulse(;τ= τ, N=N, FWHM=FWHM, λ0=λ0, C=C)
+    τ0 = FWHM/1.76
+    # P0 = energy/(2*τ0)
+    res0 = @. N*sech(τ/τ0)*exp(-1im*C*(τ/τ0)^2/2)
+    res::Pulse = Pulse{Float64}(res0, FWHM, λ0, τ, N, τ0, N)
+    res
+end
+
 function pulseFromFile(file::String; timeFactor=1e-15, npts=2^14, energy=1e-6, phase_sign = 1.0)
     data = readdlm(file, Float64)
     # if length(data[1,:]) < 20

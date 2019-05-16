@@ -6,7 +6,7 @@
    p::T# pressure
    Tk::T# temperture
    Ip::T# ionization energy divided by e. For N2 for example Ip=15.58
-   α::T# attenuation Need modification to accept array
+   α# attenuation Need modification to accept array
 end
 
 function systemInfo(pulse::Pulse, fiber::Fiber)
@@ -44,6 +44,8 @@ function χ3(gas::Symbol, p, Tk)
     Chi3Ar = 23.5*Chi3He
     Chi3Kr = 64.0*Chi3He
     Chi3Xe = 188.2*Chi3He
+    Chi3O2 = 20.93*Chi3He #estimated from n2 from https://www.osapublishing.org/view_article.cfm?gotourl=https%3A%2F%2Fwww%2Eosapublishing%2Eorg%2FDirectPDFAccess%2FE77D9C07-DA73-08A6-1DBCC7FF6E9E255C_34926%2Fjosab-14-3-650%2Epdf%3Fda%3D1%26id%3D34926%26seq%3D0%26mobile%3Dno&org=Heriot-Watt%20University%20Library
+    Chi3Air = Chi3O2*0.20946 + Chi3N2*(1-0.20946-0.009340) + Chi3Ar*0.009340 #estimated from N2 and O2
 
     if gas == :N2
         return rNGas(p, Tk)*4*Chi3N2
@@ -63,13 +65,16 @@ function χ3(gas::Symbol, p, Tk)
     if gas == :Xe
         return rNGas(p, Tk)*4*Chi3Xe
     end
+    if gas == :O2
+        return rNGas(p, Tk)*4*Chi3O2
+    end
+    if gas == :Air
+        return rNGas(p, Tk)*4*Chi3Air
+    end
 end
 
 
 function n_2(gas::Symbol,  p, Tk)
-    if gas == :air
-        return 1e-23
-    end
     res = 3.0*χ3(gas, p, Tk)/(4.0*ϵ0*c)
     return res
 end
