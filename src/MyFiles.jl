@@ -11,8 +11,8 @@ export  gnlse, Fiber, createTimeGrid, Pulse, gaussianPulse, sechPulse,
         uppe2, LE_operator, βnl, dis_wave, zero_disp, lbeta2,
         soliton_order, getGamma, Waist, systemInfo,  soliton_period, smoothstep,
         flipsmoothstep, diffsion, test, diffsion0, rhs2, testrhs, ionRateAdk,
-        geisslerPlasmaUPPE, cumtrapz, arb_f, chirpSechPulse,
-        c, ϵ0
+        geisslerPlasmaUPPE, cumtrapz, arb_f, chirpSechPulse, System,
+        c, ϵ0, rindex, χ30,refractive_index, O3_disp, dispersion_coeffecient
 
 function __init__()
     global x = symbols(:x)

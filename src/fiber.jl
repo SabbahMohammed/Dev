@@ -2,8 +2,8 @@
    foo::Int = 6
    diameter::T#fiber diameter
    length::T# fiber length
-   gas::S# gas used
-   p::T# pressure
+   gas::Dict{S,T}# gas used
+   p::Array{T,1}# pressure
    Tk::T# temperture
    Ip::T# ionization energy divided by e. For N2 for example Ip=15.58
    α# attenuation Need modification to accept array
@@ -32,7 +32,7 @@ function rNGas(p, Tk)
     return p*T0/(p0*Tk)
 end
 
-function χ3(gas::Symbol, p, Tk)
+function χ30(gas, p, Tk)
     #=
     Chi3 of a 'gas' [m^2/V^2], mostly from Lehmeier 1985
     pressure: P [bar]
@@ -72,6 +72,15 @@ function χ3(gas::Symbol, p, Tk)
         return rNGas(p, Tk)*4*Chi3Air
     end
 end
+
+function χ3(gas, p, Tk)
+    sus = 0
+    for i in keys(gas)
+        sus += χ30(i, gas[i]*p, Tk)
+    end
+    return sus
+end
+
 
 
 function n_2(gas::Symbol,  p, Tk)

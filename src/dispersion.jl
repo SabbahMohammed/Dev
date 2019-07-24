@@ -8,7 +8,19 @@ to plot these betas, use plot(eqn, 200:10:1300)
 
 
 # x is ω
-function beta0(x, gas::Symbol, p, Tk, a)
+function beta0(x, gas, p, Tk, a)
+
+    # return x/c + 0.5*x*p*Tk_0*(b_1/(1-c_1*x^2) + b_2/(1-c_2*x^2))/(p_0*Tk)/(c) - .5*u^2*c/(a^2*x)
+    # return x/c + 0.5*x*(refractive_index(x,gas,p,Tk)-1)/(c) - .5*u^2*c/(a^2*x)
+    L = x/c - .5*u^2*c/(a^2*x)
+    for i in keys(gas)
+        b_1,b_2,c_1,c_2 = dispersion_coeffecient(i)
+        L +=  0.5*x*gas[i]*p*Tk_0*(b_1/(1-c_1*x^2) + b_2/(1-c_2*x^2))/(c*p_0*Tk)
+    end
+    return L
+end
+
+function dispersion_coeffecient(gas)
     if gas == :Air
         # constants for Air
         b_1 = 14926.44*10^-8.0
@@ -42,18 +54,60 @@ function beta0(x, gas::Symbol, p, Tk, a)
         c_2 = 7.760*10^-3.0*10^-12.0/(4*pi^2*c^2)
     end
 
-    return x/c + 0.5*x*p*Tk_0*(b_1/(1-c_1*x^2) + b_2/(1-c_2*x^2))/(c*p_0*Tk) - .5*u^2*c/(a^2*x)
+    return b_1,b_2,c_1,c_2
 end
 
-function beta1(x, gas::Symbol, p, Tk, a)
+function refractive_index(gas)
+    if gas == :O3
+        data = readdlm(raw"C:\Users\ms246\Dropbox (Heriot-Watt University Team)\RES_EPS_Lupo\Projects\Mohammed\phd\ozone absorption spectrum\kk_1nm.txt")
+    end
+    data = data[1,:]
+    freq = readdlm(raw"C:\Users\ms246\Dropbox (Heriot-Watt University Team)\RES_EPS_Lupo\Projects\Mohammed\phd\ozone absorption spectrum\freqdata_1nm.txt")
+    freq = freq[:,1]
+
+    spl = Spline1D(freq, data; k=3, bc="nearest", s=0.0)
+    return spl
+end
+
+function O3_disp(W,p,Tk,a; diff=0)
+    # β   = W./c .+ 0.5.*W.*p.*Tk_0.*refractive_index(:O3)./(c.*p_0.*Tk) .- .5*u^2*c/(a^2*W)
+    ref = Spline1D(W, refractive_index(:O3); k=3, bc="nearest", s=0.0)
+    y(ω) = ω/c + ω*p*Tk_0*ref(ω)/(c*p_0*Tk) +  0.5*ω*p*293*ref(ω)/(c*p_0*Tk) - 0.5*u^2*c/(a^2.0*ω)
+    function β(W)
+        temp = Array([])
+        for i in 1:length(W)
+            if W[i] > 2e16
+                append!(temp, y(2e16))
+            elseif W[i] < 0.5e15
+                append!(temp, y(0.5e15))
+            else
+                append!(temp, y(W[i]))
+            end
+        end
+        return temp
+    end
+    β0 = Spline1D(W, β(W), ; k=3, bc="nearest", s=0.0)
+    β1 = Spline1D(W, derivative(β0, W); k=3, bc="nearest", s=0.0)
+
+    if diff == 0
+        return β0(W)
+    elseif diff == 1
+        return β1(W)
+    elseif diff == 2
+        β2 = derivative(β1, W)
+        return β2
+    end
+end
+
+function beta1(x, gas, p, Tk, a)
     return diff(beta0(x, gas, p, Tk, a), x)
 end
 
-function beta2(x, gas::Symbol, p, Tk, a)
+function beta2(x, gas, p, Tk, a)
     return diff(beta1(x, gas, p, Tk, a), x)
 end
 
-function wbeta0(ω::Float64, gas::Symbol, p, Tk, a)
+function wbeta00(ω::Float64, gas, p, Tk, a)
     # if ω > 2e16
     #     y = beta0(x, gas, p, Tk, a)
     #     return Float64(subs(y, x=>2e16))
@@ -62,6 +116,22 @@ function wbeta0(ω::Float64, gas::Symbol, p, Tk, a)
     #     y = beta0(x, gas, p, Tk, a)
     #     return Float64(subs(y, x=>0.5e15))
     # end
+    y = beta0(x, gas, p, Tk, a)
+    return Float64(subs(y, x=>ω))
+end
+
+function wbeta0(W, gas, p, Tk, a)
+    y = Vector()
+    for i in 1:length(W)
+        l = wbeta00(W[i], gas, p, Tk, a)
+        append!(y, l)
+    end
+    return y
+end
+
+
+function lbeta0(λ, gas::Symbol, p, Tk, a)
+    ω = (2pi*c)/λ
     y = beta0(x, gas, p, Tk, a)
     return Float64(subs(y, x=>ω))
 end
@@ -92,11 +162,12 @@ function wbeta2(ω::Float64, gas::Symbol, p, Tk, a)
     return Float64(subs(y, x=>ω))
 end
 
-function lbeta0(λ, gas::Symbol, p, Tk, a)
-    ω = (2pi*c)/λ
-    y = beta0(x, gas, p, Tk, a)
-    return Float64(subs(y, (x,ω)))
-end
+# function lbeta0(λ, gas::Symbol, p, Tk, a)
+#     ω = (2pi*c)/λ
+#     y = beta0(x, gas, p, Tk, a)
+#     print(y)
+#     return Float64(subs(y, x=>ω))
+# end
 
 function lbeta2(λ, gas::Symbol, p, Tk, a)
     ω = (2pi*c)/λ
@@ -112,10 +183,20 @@ function L_operator(ω::Float64, ω0, gas::Symbol, p, Tk, a)
     return Float64(subs(beta00, x=>s)) - Float64(subs(beta00, x=>ω0)) - Float64(subs(beta11, x=>ω0))*ω
 end
 
-function LE_operator(ω::Float64, ω0, gas::Symbol, p, Tk, a)
+function LE_operator(W, ω0, gas::Dict{Symbol,Float64}, p, Tk, a)
+    L = Vector()
+    for i in 1:length(W)
+        l = LE0_operator(W[i], ω0, gas, p, Tk, a)
+        append!(L, l)
+    end
+    return L
+end
+
+function LE0_operator(ω::Float64, ω0, gas::Dict{Symbol,Float64}, p, Tk, a)
     # if ω == 0
     #     return 0.0
     # end
+
     if ω > 2e16
         beta00 = beta0(x, gas, p, Tk, a)
         beta11 = beta1(x, gas, p, Tk, a)

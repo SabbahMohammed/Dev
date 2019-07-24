@@ -1,0 +1,2 @@
+follow this to create system image that contains the packages that you want
+https://discourse.julialang.org/t/ann-packagecompiler-with-incremental-system-images/20489/23?u=mohammed_sabbah

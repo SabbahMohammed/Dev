@@ -1,6 +1,7 @@
 
 @with_kw struct System{T}
     foo::Int = 6
+    bar::Array{T,1}
     npts::Float64
     L::Array{Complex{T},1}
     Et::Array{T,1}

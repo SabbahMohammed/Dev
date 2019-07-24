@@ -51,22 +51,24 @@ function ionRate(Et, τ, GePl)
     if GePl.pltype == :adk
         ionRateAdk(Et, GePl.WE, GePl.plconstants)
     elseif GePl.pltype == :ppt
-        ppt(Et, τ, ir::IonizationRatePPT)
+        ppt.(Et, GePl.ir::IonizationRatePPT)
     end
-    p = GePl.plconstants[5]
+    # p = GePl.plconstants[5]
     cumtrapz(τ, GePl.WE, GePl.temp2)
     # Na .= exp.(-temp2)
     for i in eachindex(GePl.Na)
         GePl.Na[i] = exp(-GePl.temp2[i])
     end
     for i in eachindex(GePl.Ne)
-        GePl.Ne[i] = p*N0*(1.0-GePl.Na[i])
+        # GePl.Ne[i] = p*N0*(1.0-GePl.Na[i]
+        GePl.Ne[i] = GePl.p*N0*(1.0-GePl.Na[i])
+
         if ~isfinite(GePl.Ne[i]) | (GePl.Ne[i] < 0.0)
             GePl.Ne[i] = 0.0
         end
     end
     for i in eachindex(GePl.Na)
-        GePl.Na[i] = p*N0*GePl.Na[i]
+        GePl.Na[i] = GePl.p*N0*GePl.Na[i]
         if ~isfinite(GePl.Na[i]) | (GePl.Na[i] < 0.0)
             GePl.Na[i] = 0.0
         end
@@ -77,6 +79,7 @@ end
     foo::Int = 6
     npts::Float64
     plconstants
+    p::Float64
     Pe::Array{T,1} = zeros(Float64, npts)
     Na::Array{T,1} = zeros(Float64, npts)
     Ne::Array{T,1} = zeros(Float64, npts)
@@ -147,7 +150,7 @@ function IonizationRatePPT(Ip, n, w; Z=1)
 end
 
 
-function ppt(Et, τ, ir::IonizationRatePPT; tol::Float64 = 1e-3, rcycle::Bool = true)
+function ppt(Et, ir::IonizationRatePPT; tol::Float64 = 1e-3, rcycle::Bool = true)
     E_a = abs(E)/a_E
     Eratio = E_a/ir.E0_a
     #if Eratio > 0.5
