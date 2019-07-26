@@ -12,23 +12,28 @@ export  gnlse, Fiber, createTimeGrid, Pulse, gaussianPulse, sechPulse,
         soliton_order, getGamma, Waist, systemInfo,  soliton_period, smoothstep,
         flipsmoothstep, diffsion, test, diffsion0, rhs2, testrhs, ionRateAdk,
         geisslerPlasmaUPPE, cumtrapz, arb_f, chirpSechPulse, System,
-        c, ϵ0, rindex, χ30,refractive_index, O3_disp, dispersion_coeffecient
+        c, ϵ0, rindex, χ30,refractive_index, O3_disp, dispersion_coeffecient,
+        gas, Tk_0, grid, Realχ, splbeta, Realχ, testdis
 
 function __init__()
     global x = symbols(:x)
 end
 
 include("constants.jl")
+include("grid.jl")
 include("raman.jl")
 include("functions.jl")
+
+include("gas.jl")
 include("plasma.jl")
 include("pulse.jl")
 include("fiber.jl")
 include("dispersion.jl")
 include("gnlse.jl")
 include("system.jl")
+
 include("uppe.jl")
-# include("test.jl")
+include("test.jl")
 
 
 end # module

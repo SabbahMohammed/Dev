@@ -2,22 +2,30 @@
    foo::Int = 6
    diameter::T#fiber diameter
    length::T# fiber length
-   gas::Dict{S,T}# gas used
-   p::Array{T,1}# pressure
    Tk::T# temperture
-   Ip::T# ionization energy divided by e. For N2 for example Ip=15.58
+   p::T#pressure
    α# attenuation Need modification to accept array
 end
 
-function systemInfo(pulse::Pulse, fiber::Fiber)
+function systemInfo(pulse::Pulse, fiber::Fiber, gases::Array{Gas{Float64, Symbol},1}; plasma=false, pltype=:adk)
+    gasMix = Vector()
+    for i in 1:length(gases)
+        t = gases[i].type
+        append!(gasMix, Dict("$t" => gases[i].pp))
+    end
+    println(gasMix)
     dict = Dict("FWHM" => pulse.FWHM,
     "wavelength" => pulse.λ0,
     "P0" => pulse.P0,
     "natural_pulse_width" => pulse.τ0,
     "energy" => pulse.energy,
-    "gas" => fiber.gas,
-    "pressure" => fiber.p,
-    "radius" => fiber.diameter/2)
+    "gas" => gasMix,
+    "pressure" => gases[1].p,
+    "radius" => fiber.diameter/2,
+    "plasma" => plasma)
+    if plasma == true
+        dict["plasma"] = pltype
+    end
     return JSON.json(dict)
 
 end
@@ -49,26 +57,21 @@ function χ30(gas, p, Tk)
 
     if gas == :N2
         return rNGas(p, Tk)*4*Chi3N2
-    end
-    if gas == :He
+    elseif gas == :He
         return rNGas(p, Tk)*4*Chi3He
-    end
-    if gas == :Ne
+    elseif gas == :Ne
         return rNGas(p, Tk)*4*Chi3Ne
-    end
-    if gas == :Ar
+    elseif gas == :Ar
         return rNGas(p, Tk)*4*Chi3Ar
-    end
-    if gas == :Kr
+    elseif gas == :Kr
         return rNGas(p, Tk)*4*Chi3Kr
-    end
-    if gas == :Xe
+    elseif gas == :Xe
         return rNGas(p, Tk)*4*Chi3Xe
-    end
-    if gas == :O2
+    elseif gas == :O2
         return rNGas(p, Tk)*4*Chi3O2
-    end
-    if gas == :Air
+    elseif gas == :O3
+        return rNGas(p, Tk)*4*Chi3O2*1.5
+    elseif gas == :Air
         return rNGas(p, Tk)*4*Chi3Air
     end
 end
@@ -85,6 +88,11 @@ end
 
 function n_2(gas::Symbol,  p, Tk)
     res = 3.0*χ3(gas, p, Tk)/(4.0*ϵ0*c)
+    return res
+end
+
+function n_2(χ3)
+    res = 3.0*χ3/(4.0*ϵ0*c)
     return res
 end
 

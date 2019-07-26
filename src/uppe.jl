@@ -1,112 +1,69 @@
-function uppe(pulse::Pulse, fiber::Fiber, betas::Array{Any,1}; dispersion::Bool = true, thg::Bool = false,  fr::Float64=0.0, shock::Bool=false, plasma::Bool=false, pltype::Symbol=:adk, nsaves::Int64=1000)
+function uppe(pulse::Pulse, fiber::Fiber, grid::Grid, gases::Array{Gas{Float64, Symbol}}, betas::Array{Any,1}; dispersion::Bool = true, thg::Bool = false,  fr::Float64=0.0, shock::Bool=false, plasma::Bool=false, pltype::Symbol=:adk, nsaves::Int64=1000)
     barglyphs="[=> ]"
 
-    ω0 = 2pi*c/pulse.λ0
-    # grid
-    τ = pulse.τ
-    dτ = τ[2] - τ[1]
-    convt = length(τ)*dτ
-    dW = 2pi/(τ[end]-τ[1])
-    W = (0:length(τ)/2)*dW
-    convw = 1/dτ
-    convt = dτ
+    g = grid
+
+    totalp = 0
+    for i in 1:length(gases)
+        totalp += gases[i].pp
+    end
+
+    if totalp != 1
+        throw("The total pressure != 1!")
+    end
 
     Et = getElectricFieldE(pulse, fiber)# .+ getElectricFieldE(pulse2, fiber)
-    Ew0 = rfft(Et)*dτ
+    Ew0 = rfft(Et)*g.dτ
 
     # fftw operators
     planrfft = plan_rfft(Et)
-    planirfft = plan_irfft(Ew0,size(Et)[1])
-    #
-    # if fiber.gas == :Air
-    #
-    #     O2_Ip = 12.0697*e
-    #     N2_Ip = 15.581*e
-    #
-    #     nsO2 = sqrt(13.59844*e/O2_Ip)
-    #     wpO2 = O2_Ip/hbar
-    #     cn2O2 = 2^(2*nsO2)/(nsO2*gamma(nsO2+1)*gamma(nsO2))
-    #
-    #     nsN2 = sqrt(13.59844*e/N2_Ip)
-    #     wpN2 = N2_Ip/hbar
-    #     cn2N2 = 2^(2*nsN2)/(nsN2*gamma(nsN2+1)*gamma(nsN2))
-    #
-    #     plconstantsO2 = [O2_Ip, nsO2, wpO2, cn2O2, fiber.p]
-    #     plconstantsN2 = [N2_Ip, nsN2, wpN2, cn2N2, fiber.p[1]]
-    #
-    #     GePlO2 = geisslerPlasmaUPPE{Float64}(npts = size(τ)[1], p = fiber.p[1], plconstants = plconstantsO2)
-    #     GePlN2 = geisslerPlasmaUPPE{Float64}(npts = size(τ)[1], p = fiber.p[1], plconstants = plconstantsN2)
-    #     GePl = [GePlO2, GePlN2]
-    # else
-    #     Ip = fiber.Ip*e
-    #     ns = sqrt(13.59844*e/Ip)
-    #     wp = Ip/hbar
-    #     cn2 = 2^(2*ns)/(ns*gamma(ns+1)*gamma(ns))
-    #     plconstants = [Ip, ns, wp, cn2, fiber.p[1]]
-    #     ir = IonizationRatePPT(fiber.Ip, 3, ω0; Z=1)
-    #     GePl = [geisslerPlasmaUPPE{Float64}(npts = size(τ)[1],plconstants = plconstants, pltype=pltype, p=fiber.p[1])]
-    # end
-
-
+    planirfft = plan_irfft(Ew0,g.npts)
+ 
 
     #loss = 0
     #dispersion
     if dispersion == true
-        if fiber.gas == :O3
-            if length(τ) == 2^14
-                return 1im.*O3_func(W,p,Tk,a)
-            else
-                throw("for O3, grid size should be 2^14")
-            end
-        end
-        L = 1im.*LE_operator(W,ω0, fiber.gas, fiber.p[1], fiber.Tk, fiber.diameter/2) #- fiber.α/2
+        spl = splbeta(g.W, gases, fiber.diameter/2; diff=0)
+        L = 1im.*LE_operator(g.W,g.ω0, gases, fiber.diameter/2, spl) #- fiber.α/2
+        # data = readdlm("L.txt")
+        # L = tryparse.(Complex{Float64}, data[:,2] .* data[:,3])
     else
         L = 0
     end
     #Raman
     if fr != 0.0
-        Ht = Htot(τ, fiber.gas,fiber.p[1], fiber.Tk)
+        Ht = Htot(g.τ, fiber.gas,fiber.p[1], fiber.Tk)
         Hw = planrfft*fftshift(Ht)
     else
         Hw = [0.0im]
     end
 
     #windows
-    gw = exp.(-100 .*((W .-  maximum(W)./2.2)./(maximum(W).*0.47)).^40)
-    # gw = exp.(-100 .*((W .-  2.8e15)./(maximum(W).*0.11)).^40)
-
-
-    gt =  exp.(-0.5 .*((τ)./(maximum(τ).*0.8)).^30)
+    gw = exp.(-100 .*((g.W .-  maximum(g.W)./2.2)./(maximum(g.W).*0.47)).^40)
+    gt =  exp.(-0.5 .*((g.τ)./(maximum(g.τ).*0.8)).^30)
 
     #some calculation done insde rhs
-    wb0 = W.^2.0./(2*c^2.0.*ϵ0.*wbeta0(W,fiber.gas, fiber.p[1], fiber.Tk, fiber.diameter/2))
+    wb0 = g.W.^2.0./(2*c^2.0.*ϵ0.*beta(g.W, gases, fiber.diameter/2, spl))
     wbdiff = wb0[end] - wb0[1]
-    wdiff = W[end] - W[1]
-    wb = wbdiff/wdiff*W
-    χ31 = χ3(fiber.gas, fiber.p[1], fiber.Tk)
-
-
-    dir = "C:\\Users\\ms246\\OneDrive - Heriot-Watt University\\programming\\julia\\FromGit\\uppe\\"
-
-    open(dir*"L.txt", "w") do io
-         writedlm(io, abs2.(L))
+    wdiff = g.W[end] - g.W[1]
+    wb = wbdiff/wdiff*g.W
+    # wb = readdlm("wb.txt")[:,1]
+    χ3 = 0
+    for i in 1:length(gases)
+        χ3 += gases[i].χ3
     end
 
-
-
-
-    sys = System{Float64}(npts = size(τ)[1], L=L, Et=Et, W=W, τ=τ, dτ=dτ, dW=dW, bar=[1,2,3],
-                ω0=ω0, fiber=fiber, pulse=pulse, gw=gw, gt=gt, convw=convw, convt=convt,
-                wb=wb, plasma=plasma, thg=thg, planrfft=planrfft, planirfft=planirfft,
-                GePl=GePl, Hw=Hw, fr=fr, χ3=χ31, pltype=pltype)
-
-
+    sys = System{Float64}(L=L, Et=Et, g=g,
+                fiber=fiber, pulse=pulse, gw=gw, gt=gt,wb=wb, plasma=plasma,
+                thg=thg, planrfft=planrfft, planirfft=planirfft,
+                gases=gases, Hw=Hw, fr=fr, χ3=χ3, pltype=pltype)
 
     zs = (0.0, fiber.length)
     Z = LinRange(0, fiber.length, nsaves)
-    prob1 = ODEProblem(rhs2, Ew0, zs, (ProgressMeter.Progress(floor(Int, Float64(fiber.length*1000)), dt=2.0, barglyphs=BarGlyphs("[=> ]"), barlen=50, color=:yellow),sys))
-    # sol = solve(prob1, Tsit5(), reltol=1e-8, abstol=1e-14, force_dtmin=true, saveat=fiber.length/nsaves)
-    @time sol = solve(prob1, Tsit5(), reltol=1e-2, abstol=1e-9,
+    prob1 = ODEProblem(rhs2, Ew0, zs, (ProgressMeter.Progress(floor(Int, Float64(fiber.length*1000)),
+                            dt=2.0, barglyphs=BarGlyphs("[=> ]"), barlen=50, color=:yellow),sys))
+
+    @time sol = solve(prob1, Tsit5(), reltol=1e-3, abstol=1e-9,
                     saveat=fiber.length/nsaves, alias_u0= true, dense=false)
 
     res = zeros(Complex{Float64}, size(sol))
@@ -114,24 +71,24 @@ function uppe(pulse::Pulse, fiber::Fiber, betas::Array{Any,1}; dispersion::Bool 
         @inbounds res[:,i] = Complex{Float64}.(sol[:,i] .* exp.(-L .* sol.t[i]))#
     end
 
-    rest = zeros(Complex{Float64}, (length(τ), nsaves+1))
+    rest = zeros(Complex{Float64}, (g.npts, nsaves+1))
     @simd for i in eachindex(Z)
         Ew = res[:,i].*2
-        Ew1 = append!(zeros(Complex{Float64}, (length(τ)- length(Ew))), Ew)
+        Ew1 = append!(zeros(Complex{Float64}, (g.npts- g.wnpts)), Ew)
         @inbounds rest[:,i] = Complex{Float64}.(ifft(Ew1))
     end
 
-    Ets = zeros(Complex{Float64}, (length(τ), nsaves+1))
+    Ets = zeros(Complex{Float64}, (g.npts, nsaves+1))
     @simd for i in eachindex(Z)
-        Ets[:,i] = irfft(res[:,i], size(τ)[1])./sqrt(2/(ϵ0*c*effectiveArea(fiber.diameter)))*1/dτ
+        Ets[:,i] = irfft(res[:,i], g.npts)./sqrt(2/(ϵ0*c*effectiveArea(fiber.diameter)))*g.convw
     end
 
-    envs = zeros(Float64, (length(τ), nsaves+1))
+    envs = zeros(Float64, (g.npts, nsaves+1))
     @simd for i in eachindex(Z)
         envs[:,i] = abs2.(get_env(Ets[:,i]))
     end
 
-    τ, W, envs, res, Z, L
+    g.τ, g.W, envs, res, Z, L, sys
 
     # τ, W, res
 end
@@ -144,24 +101,14 @@ function rhs2(dEw, Ew, para, z)
 
     update!(para[1], max(floor(Int, Float64(z*1000)), 1))
 
-    # if z>0.06 && z<0.09
-    #     sys.fiber.p = sys.fiber.p+2
-    #     sys.L = @. 1im*LE_operator.(W,ω0, fiber.gas, sys.fiber.p, fiber.Tk, fiber.diameter/2, size(τ)[1])
-    # end
-
-    if z>0.06
-        sys.fiber.gas[:O3] = 1e-3
-    end
-
     sys.Ew_0 .= Ew
     ml!(sys.Ew_0, sys.L, z)
-
     sys.temp5 .= sys.planirfft*sys.Ew_0
-    ift!(sys.Et, sys.temp5 , sys.convw)
+    ift!(sys.Et, sys.temp5 , sys.g.convw)
 
     if sys.fr != 0.0
         sys.preRt .=  (sys.planirfft*(sys.Hw.*(sys.planrfft*(sys.Et.^2))))
-        sys.Rt .= sys.fr.*sys.Et.*sys.χ3.*ϵ0.*sys.preRt.*sys.dτ
+        sys.Rt .= sys.fr.*sys.Et.*sys.χ3.*ϵ0.*sys.preRt.*sys.g.dτ
         sys.ret .= (1-sys.fr)*sys.χ3*ϵ0.*sys.Et.^3 .+ sys.Rt
     else
         if sys.thg == true
@@ -173,31 +120,22 @@ function rhs2(dEw, Ew, para, z)
 
     if sys.plasma == true
         if sys.pltype == :adk
-            if sys.fiber.gas == :Air
-                GePlN2 = sys.GePl[2]
-                GePlO2 = sys.GePl[1]
-                geisslerPlasmaUPPE(sys.Et, sys.τ, GePlN2)
-                geisslerPlasmaUPPE(sys.Et, sys.τ, GePlO2)
-                sys.Pe .= 0.2*GePlO2.Pe + 0.8*GePlN2.Pe
-                # geisslerPlasmaUPPE(Et, τ, Pe, Na, Ne, WE, Pe_l, Pe_f, plconstants, temp1, temp2, temp3, temp4)
-            else
-                geisslerPlasmaUPPE(sys.Et, sys.τ, sys.GePl[1])
-                sys.Pe .= sys.GePl[1].Pe
+            sys.Pe .= zeros(Float64, sys.g.npts)
+            for i in eachindex(sys.gases)
+                geisslerPlasmaUPPE(sys.Et, sys.g.τ, sys.g.dτ, sys.gases[i])
+                sys.Pe .+= sys.gases[i].gp.Pe              
             end
         elseif sys.pltype == :ppt
             println("ppt model is not ready yet")
         end
         sys.ret .= sys.ret .+ sys.Pe
     end
-    # else
-    #     ml_1!(ret, (Et).^3, χ3(fiber.gas, fiber.p, fiber.Tk)*ϵ0)
-    # end
 
-    ml_2!(sys.PNL, sys.wb, sys.planrfft*sys.ret, -1im*sys.convt)
+    ml_2!(sys.PNL, sys.wb, sys.planrfft*sys.ret, -1im*sys.g.convt)
 
-    ml_2!(sys.dEt, sys.planirfft*sys.PNL, sys.gt, sys.convw)
+    ml_2!(sys.dEt, sys.planirfft*sys.PNL, sys.gt, sys.g.convw)
 
-    ml_0!(dEw, sys.planrfft*sys.dEt, sys.L, sys.gw, z, sys.convt)
+    ml_0!(dEw, sys.planrfft*sys.dEt, sys.L, sys.gw, z, sys.g.convt)
 end
 
 
