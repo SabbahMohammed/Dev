@@ -1,6 +1,6 @@
 module MyFiles
 
-using SpecialFunctions, Dierckx, SymEngine, DelimitedFiles, ProgressMeter, DSP, FFTW, Roots, Parameters, JSON, NumericalIntegration
+using SpecialFunctions, Dierckx, SymEngine, DelimitedFiles, ProgressMeter, DSP, FFTW, Roots, Parameters, JSON, NumericalIntegration, Dates
 import DifferentialEquations: ODEProblem, solve, Tsit5
 
 export  gnlse, Fiber, createTimeGrid, Pulse, gaussianPulse, sechPulse,
@@ -13,7 +13,7 @@ export  gnlse, Fiber, createTimeGrid, Pulse, gaussianPulse, sechPulse,
         flipsmoothstep, diffsion, test, diffsion0, rhs2, testrhs, ionRateAdk,
         geisslerPlasmaUPPE, cumtrapz, arb_f, chirpSechPulse, System,
         c, ϵ0, rindex, χ30,refractive_index, O3_disp, dispersion_coeffecient,
-        gas, Tk_0, grid, Realχ, splbeta, Realχ, testdis
+        gas, Tk_0, grid, Realχ, splbeta, Realχ, testdis, beta
 
 function __init__()
     global x = symbols(:x)

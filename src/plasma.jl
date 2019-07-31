@@ -154,7 +154,7 @@ function ppt(Et, ir::IonizationRatePPT; tol::Float64 = 1e-3, rcycle::Bool = true
     ret/(a_t*div)
 end
 
-
+#=
 for gnlse
     function ionRateAdk(Et, Ip)
         Ip *= e
@@ -372,3 +372,4 @@ all below is for uppe
 #     @. gas.gp.WE =  gas.gp.wp*gas.gp.cn2*(4*gas.gp.wp/gas.gp.wt)^(2*gas.gp.ns-1)*exp(-4.0/3.0*gas.gp.wp/gas.gp.wt)
 #     gas.gp.WE[notfinite.(gas.gp.WE)] .= 0.0
 # end
+=#

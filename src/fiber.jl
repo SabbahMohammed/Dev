@@ -4,10 +4,17 @@
    length::T# fiber length
    Tk::T# temperture
    p::T#pressure
-   α# attenuation Need modification to accept array
+   loss::Bool# attenuation Need modification to accept array
+   plasma::Bool
+   pltype::Symbol
+   dispersion::Bool
+   shock::Bool
+   fr::Float64
+   thg::Bool
+   nsaves::Int64=1000
 end
 
-function systemInfo(pulse::Pulse, fiber::Fiber, gases::Array{Gas{Float64, Symbol},1}; plasma=false, pltype=:adk)
+function systemInfo(pulse::Pulse, fiber::Fiber, gases::Array{Gas{Float64, Symbol},1})
     gasMix = Vector()
     for i in 1:length(gases)
         t = gases[i].type
@@ -22,12 +29,23 @@ function systemInfo(pulse::Pulse, fiber::Fiber, gases::Array{Gas{Float64, Symbol
     "gas" => gasMix,
     "pressure" => gases[1].p,
     "radius" => fiber.diameter/2,
-    "plasma" => plasma)
-    if plasma == true
-        dict["plasma"] = pltype
+    "plasma" => fiber.plasma)
+    if fiber.plasma == true
+        dict["plasma"] = fiber.pltype
+    else
+        dict["plasma"] = false
     end
     return JSON.json(dict)
+end
 
+function systemInfo(pulse::Pulse,gases::Array{Gas{Float64, Symbol},1})
+    gasMix = ""
+    for i in 1:length(gases)
+        t = string(gases[i].type)*"_"*string(gases[i].pp)*"_"
+        gasMix *= t
+    end
+    
+    return gasMix*string(Dates.minute(now())+Dates.hour(now())*100+Dates.second(now())*0.01)
 end
 
 function effectiveArea(diameter)

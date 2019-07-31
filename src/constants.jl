@@ -29,7 +29,7 @@ Bk =The rotational constants
 
 const e = 1.60217662e-19
 const hbar = 1.0545718e-34
-const N0 =  2.5000013629442974e25 # number of atoms in air
+const N0 =  2.5000013629442974e25 # number of gas atoms(molecules) in 1 m^3 air at standard condition
 const m_e = 9.10938356e-31
 const ϵ0 = 8.854e-12
 const Tk = 293.0

@@ -35,13 +35,31 @@ function Realχ(type::Symbol, p::Float64, pp::Float64, Tk::Float64; W=Nothing)
         W = W
     end
     if type == :O3
-        data = readdlm(raw"C:\Users\ms246\Dropbox (Heriot-Watt University Team)\RES_EPS_Lupo\Projects\Mohammed\phd\ozone absorption spectrum\kk_1nm.txt")
-        data = data[1,:]
-        freq = readdlm(raw"C:\Users\ms246\Dropbox (Heriot-Watt University Team)\RES_EPS_Lupo\Projects\Mohammed\phd\ozone absorption spectrum\freqdata_1nm.txt")
+        path = joinpath(pwd(), "ozone")
+        data = readdlm("$path\\ozone_delta_n.txt")
+        data = data[:,1]
+        freq = readdlm("$path\\freqdata_ozone.txt")
         freq = freq[:,1]
-        Reχ = data.*(2.0 .+ data)*293/273.15 # data.*(2.0 .+ data) is to get Re(χ) and *293/273.15 to put it in the standered conditions
+        
+        λ = 2pi*3e8./freq*1e9
+        λ_bound = 2.0 .< λ .< 400.0 
+        
+        data = data[λ_bound]
+        freq = freq[λ_bound]
+        
+        Reχ = data.*(2.0 .+ data) # data.*(2.0 .+ data) is to get Re(χ)
         Reχ = pp*p*Tk_0*Reχ/(p_0*Tk)
-        spl = Spline1D(freq, data; k=3, bc="nearest", s=0.0)
+        
+        spl = Spline1D(freq, Reχ; k=3, bc="nearest", s=0.0)
+        return spl
+    elseif type == :O2
+        Re_N2 = Realχ(:N2, 1.0, 1.0, 273.15; W=W)
+        Re_N2 = Re_N2(W)
+        Re_Air = Realχ(:Air, 1.0, 1.0, 273.15; W=W)
+        Re_Air = Re_Air(W)
+        Re_O2 = 1/0.2*(Re_Air - 0.8*Re_N2)
+        Re_O2 = pp*p*Tk_0*Re_O2/(p_0*Tk)
+        spl = Spline1D(W, Re_O2; k=3, bc="nearest", s=0.0)
         return spl
     else
         b_1,b_2,c_1,c_2 = dispersion_coeffecient(type)
@@ -59,7 +77,8 @@ function beta(W::Array{Float64,1}, gases::Array{Gas{Float64, Symbol},1}, a::Floa
         β1 = derivative(spl, W)
         return β1
     elseif diff == 2
-        β1 = derivative(spl, W)
+        b1 = derivative(spl, W)
+        β1 = Spline1D(W, b1)
         β2 = derivative(β1, W)
         return β2
     end

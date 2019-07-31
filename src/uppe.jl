@@ -1,4 +1,4 @@
-function uppe(pulse::Pulse, fiber::Fiber, grid::Grid, gases::Array{Gas{Float64, Symbol}}, betas::Array{Any,1}; dispersion::Bool = true, thg::Bool = false,  fr::Float64=0.0, shock::Bool=false, plasma::Bool=false, pltype::Symbol=:adk, nsaves::Int64=1000)
+function uppe(pulse::Pulse, fiber::Fiber, grid::Grid, gases::Array{Gas{Float64, Symbol}}, betas::Array{Any,1})
     barglyphs="[=> ]"
 
     g = grid
@@ -18,29 +18,57 @@ function uppe(pulse::Pulse, fiber::Fiber, grid::Grid, gases::Array{Gas{Float64, 
     # fftw operators
     planrfft = plan_rfft(Et)
     planirfft = plan_irfft(Ew0,g.npts)
+
+    #windows
+    # gw = exp.(-100 .*((g.W .-  maximum(g.W)./2.2)./(maximum(g.W).*0.47)).^40)
+    gw = exp.(-100 .*((g.W .-  maximum(g.W)./5)./(maximum(g.W).*0.47)).^40)
+    gt =  exp.(-0.5 .*((g.τ)./(maximum(g.τ).*0.8)).^30)
  
 
     #loss = 0
     #dispersion
-    if dispersion == true
+    loss = zeros(size(g.W))
+    if fiber.loss == true
+        for i in eachindex(gases)
+            if gases[i].type == :O3
+                path = joinpath(pwd(), "ozone")
+                data = readdlm("$path\\full_absorption_data(in cm2).txt")
+                data = data[:,1]
+                data .*= 1e-4#(convert to m^2)
+                freq = readdlm("$path\\freqdata_ozone.txt")
+                freq = freq[:,1]
+                
+                λ = 2pi*3e8./freq*1e9
+                λ_bound = 2.0 .< λ .< 400.0 
+                
+                data = data[λ_bound]
+                freq = freq[λ_bound]
+                data .*= gases[i].p*gases[i].pp*N0
+                spl = Spline1D(freq, data; k=3, bc="nearest", s=0.0)
+                loss .= spl.(g.W)
+            end
+        end
+    end
+
+    loss = gw.*loss
+
+    if fiber.dispersion == true
+        
+
         spl = splbeta(g.W, gases, fiber.diameter/2; diff=0)
-        L = 1im.*LE_operator(g.W,g.ω0, gases, fiber.diameter/2, spl) #- fiber.α/2
+        L = 1im.*LE_operator(g.W,g.ω0, gases, fiber.diameter/2, spl) .+ loss./2
         # data = readdlm("L.txt")
         # L = tryparse.(Complex{Float64}, data[:,2] .* data[:,3])
     else
         L = 0
     end
     #Raman
-    if fr != 0.0
+    if fiber.fr != 0.0
         Ht = Htot(g.τ, fiber.gas,fiber.p[1], fiber.Tk)
         Hw = planrfft*fftshift(Ht)
     else
         Hw = [0.0im]
     end
-
-    #windows
-    gw = exp.(-100 .*((g.W .-  maximum(g.W)./2.2)./(maximum(g.W).*0.47)).^40)
-    gt =  exp.(-0.5 .*((g.τ)./(maximum(g.τ).*0.8)).^30)
 
     #some calculation done insde rhs
     wb0 = g.W.^2.0./(2*c^2.0.*ϵ0.*beta(g.W, gases, fiber.diameter/2, spl))
@@ -54,36 +82,36 @@ function uppe(pulse::Pulse, fiber::Fiber, grid::Grid, gases::Array{Gas{Float64, 
     end
 
     sys = System{Float64}(L=L, Et=Et, g=g,
-                fiber=fiber, pulse=pulse, gw=gw, gt=gt,wb=wb, plasma=plasma,
-                thg=thg, planrfft=planrfft, planirfft=planirfft,
-                gases=gases, Hw=Hw, fr=fr, χ3=χ3, pltype=pltype)
+                fiber=fiber, pulse=pulse, gw=gw, gt=gt,wb=wb, plasma=fiber.plasma,
+                thg=fiber.thg, planrfft=planrfft, planirfft=planirfft,
+                gases=gases, Hw=Hw, fr=fiber.fr, χ3=χ3, pltype=fiber.pltype)
 
     zs = (0.0, fiber.length)
-    Z = LinRange(0, fiber.length, nsaves)
+    Z = LinRange(0, fiber.length, fiber.nsaves)
     prob1 = ODEProblem(rhs2, Ew0, zs, (ProgressMeter.Progress(floor(Int, Float64(fiber.length*1000)),
                             dt=2.0, barglyphs=BarGlyphs("[=> ]"), barlen=50, color=:yellow),sys))
 
-    @time sol = solve(prob1, Tsit5(), reltol=1e-3, abstol=1e-9,
-                    saveat=fiber.length/nsaves, alias_u0= true, dense=false)
+    @time sol = solve(prob1, Tsit5(), reltol=1e-4, abstol=1e-10,
+                    saveat=fiber.length/fiber.nsaves, alias_u0= true, dense=false)
 
     res = zeros(Complex{Float64}, size(sol))
     @simd for i in eachindex(sol.t)
         @inbounds res[:,i] = Complex{Float64}.(sol[:,i] .* exp.(-L .* sol.t[i]))#
     end
 
-    rest = zeros(Complex{Float64}, (g.npts, nsaves+1))
+    rest = zeros(Complex{Float64}, (g.npts, fiber.nsaves+1))
     @simd for i in eachindex(Z)
         Ew = res[:,i].*2
         Ew1 = append!(zeros(Complex{Float64}, (g.npts- g.wnpts)), Ew)
         @inbounds rest[:,i] = Complex{Float64}.(ifft(Ew1))
     end
 
-    Ets = zeros(Complex{Float64}, (g.npts, nsaves+1))
+    Ets = zeros(Complex{Float64}, (g.npts, fiber.nsaves+1))
     @simd for i in eachindex(Z)
         Ets[:,i] = irfft(res[:,i], g.npts)./sqrt(2/(ϵ0*c*effectiveArea(fiber.diameter)))*g.convw
     end
 
-    envs = zeros(Float64, (g.npts, nsaves+1))
+    envs = zeros(Float64, (g.npts, fiber.nsaves+1))
     @simd for i in eachindex(Z)
         envs[:,i] = abs2.(get_env(Ets[:,i]))
     end
